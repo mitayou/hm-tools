@@ -6,7 +6,7 @@ import fs from 'fs'
  * HDC工具类
  * 用于执行hdc相关命令
  */
-export class HdcWrapper {
+export default class HdcWrapper {
   private hdcPath: string
 
   constructor() {

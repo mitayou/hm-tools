@@ -51,5 +51,17 @@
     "vue": "^3.5.25",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^3.1.5"
+  },
+  "build": {
+    "productName": "鸿蒙工具",
+    "extraResources": [
+      {
+        "from": "./toolchains/",
+        "to": "../toolchains",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   }
 }
