@@ -2,26 +2,35 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import HdcWrapper from './HdcWrapper'
+
+let win: BrowserWindow | null = null
 
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  win = new BrowserWindow({
     width: 900,
     height: 670,
+    // 无边框
+    frame: false,
+    // 透明
+    transparent: true,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  win.on('ready-to-show', () => {
+    win?.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -29,9 +38,9 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -72,3 +81,31 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
+const hdc = new HdcWrapper()
+ipcMain.handle('hdc:run', async (_event, command) => {
+  try {
+    const cmdParts = command.trim().split(/\s+/)
+    const args = cmdParts[0] === 'hdc' ? cmdParts.slice(1) : cmdParts
+    const result = await hdc.exec(args)
+    return { success: true, data: result }
+  } catch (error) {
+    return { success: false, error }
+  }
+})
+ipcMain.handle('hdc:getDevices', async () => {
+  try {
+    const devices = await hdc.getDevices()
+    return { success: true, data: devices }
+  } catch (error) {
+    return { success: false, error }
+  }
+})
+ipcMain.on('window:minimize', () => win?.minimize())
+ipcMain.on('window:maximize', () => {
+  if (win?.isMaximized()) {
+    win.unmaximize()
+  } else {
+    win?.maximize()
+  }
+})
+ipcMain.on('window:close', () => win?.close())
