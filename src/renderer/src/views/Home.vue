@@ -3,7 +3,12 @@
     <el-card class="device-card">
       <template #header>
         <div class="card-header">
-          <span>设备连接({{ devices.length }}台)</span>
+          <div class="device-header">
+            <el-icon v-if="isLoading" class="is-loading">
+              <loading />
+            </el-icon>
+            设备连接({{ devices.length }}台)
+          </div>
           <el-button type="primary" link @click="refreshDevices">刷新列表</el-button>
         </div>
       </template>
@@ -15,39 +20,70 @@
           未检测到设备，请连接USB或在设置-开发者选项-开启无线调试
         </div>
       </div>
+      <div class="command-grid">
+        <el-button type="default" @click="runCommand('get-udid')">
+          <el-icon>
+            <aim />
+          </el-icon>
+          <span> 获取UDID</span>
+        </el-button>
+        <el-button type="primary" @click="runCommand('screenshot')">
+          <el-icon>
+            <cellphone />
+          </el-icon>
+          <span> 截屏预览</span>
+        </el-button>
+      </div>
     </el-card>
 
     <el-card class="command-card">
       <template #header>
         <div class="card-header">
-          <span>常用功能</span>
-          <div v-if="currentPackages.length > 0" class="package-tags">
-            <el-tag
-              v-for="pkg in currentPackages"
-              :key="pkg.packageName"
-              type="success"
-              size="small"
-              >{{ pkg.name }}</el-tag
+          <span>应用操作</span>
+          <div v-if="currentPackages.length > 0">
+            <el-checkbox
+              v-model="checkAll"
+              :indeterminate="isIndeterminate"
+              @change="handleCheckAllChange"
+              >全选</el-checkbox
             >
           </div>
           <el-tag v-else type="warning">未配置包名</el-tag>
         </div>
       </template>
 
+      <div v-if="currentPackages.length > 0" class="package-selection">
+        <div class="text-select">选择安装包</div>
+        <el-checkbox-group v-model="selectedPackages" @change="handleCheckedPackagesChange">
+          <el-checkbox
+            v-for="pkg in currentPackages"
+            :key="pkg.packageName"
+            :label="pkg.packageName"
+            >{{ pkg.name }}</el-checkbox
+          >
+        </el-checkbox-group>
+      </div>
       <div class="command-grid">
-        <el-button @click="runCommand('get-udid')">获取UDID</el-button>
         <el-button
           type="danger"
           @click="runCommand('clean-data')"
-          :disabled="currentPackages.length === 0"
-          >清除数据</el-button
+          :disabled="selectedPackages.length === 0"
         >
+          <el-icon>
+            <coin />
+          </el-icon>
+          <span> 清除数据</span>
+        </el-button>
         <el-button
           type="warning"
           @click="runCommand('clean-cache')"
-          :disabled="currentPackages.length === 0"
-          >清除缓存</el-button
+          :disabled="selectedPackages.length === 0"
         >
+          <el-icon>
+            <delete />
+          </el-icon>
+          <span> 清除缓存</span>
+        </el-button>
 
         <!-- Custom Commands -->
         <el-button
@@ -78,26 +114,29 @@
     </el-card>
 
     <!-- AppData Check Result -->
-    <el-card v-if="foundHap" class="hap-card">
+    <el-card v-if="foundHaps.length > 0" class="hap-card">
       <template #header>
         <div class="card-header">
-          <span>发现构建包</span>
-          <el-tag type="warning" size="small">DevTools</el-tag>
+          <span>发现构建包 ({{ foundHaps.length }})</span>
+          <el-tag type="warning" size="small">构建目录</el-tag>
         </div>
       </template>
-      <div class="hap-info">
-        <div class="hap-path" :title="foundHap.path">{{ foundHap.path }}</div>
-        <div class="hap-time">创建时间: {{ new Date(foundHap.mtime).toLocaleString() }}</div>
-        <el-button type="primary" style="margin-top: 10px" @click="installHap"
-          >安装到设备</el-button
-        >
+      <div class="hap-list">
+        <div v-for="(hap, index) in foundHaps" :key="index" class="hap-item">
+          <div class="hap-info">
+            <div class="hap-name">{{ hap.name }}</div>
+            <div class="hap-path" :title="hap.path">{{ hap.path }}</div>
+            <div class="hap-time">创建时间: {{ new Date(hap.mtime).toLocaleString() }}</div>
+          </div>
+          <el-button type="primary" size="small" @click="installHap(hap.path)">安装</el-button>
+        </div>
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 
 interface AppPackage {
@@ -107,45 +146,45 @@ interface AppPackage {
 
 const devices = ref<string[]>([])
 const selectedDevice = ref('')
+const isLoading = ref(false)
 const logs = ref<{ time: string; content: string; type: 'info' | 'error' }[]>([])
 const logViewerRef = ref<HTMLElement | null>(null)
+const currentPackages = ref<AppPackage[]>([])
+const customCommands = ref<{ name: string; command: string }[]>([])
+const selectedPackages = ref<string[]>([])
+const checkAll = ref(false)
+const isIndeterminate = ref(false)
 
-// Load settings from localStorage
-const currentPackages = computed<AppPackage[]>(() => {
-  const pkgs = localStorage.getItem('hm_packages')
-  if (pkgs) {
-    try {
-      return JSON.parse(pkgs)
-    } catch (e) {
-      console.error('Failed to parse packages:', e)
-      return []
-    }
+// Load settings from config
+const loadSettings = async () => {
+  try {
+    const config = await window.electronAPI.getConfig()
+    currentPackages.value = config.packages || []
+    customCommands.value = config.customCommands || []
+    // Default select all
+    selectedPackages.value = currentPackages.value.map((p) => p.packageName)
+    checkAll.value = true
+    isIndeterminate.value = false
+  } catch (error) {
+    console.error('Failed to load settings:', error)
   }
-  // Fallback for old array of strings
-  const oldPkgs = localStorage.getItem('hm_package_names')
-  if (oldPkgs) {
-    try {
-      const arr = JSON.parse(oldPkgs)
-      if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'string') {
-        return arr.map((p) => ({ name: p, packageName: p }))
-      }
-    } catch (e) {
-      console.error('Failed to parse old packages:', e)
-      return []
-    }
-  }
-  // Fallback for old single string
-  const oldPkg = localStorage.getItem('hm_package_name')
-  return oldPkg ? [{ name: '默认应用', packageName: oldPkg }] : []
-})
+}
 
-const customCommands = computed(() => {
-  const cmds = localStorage.getItem('hm_custom_commands')
-  return cmds ? JSON.parse(cmds) : []
-})
+const handleCheckAllChange = (val: boolean) => {
+  selectedPackages.value = val ? currentPackages.value.map((p) => p.packageName) : []
+  isIndeterminate.value = false
+}
+
+const handleCheckedPackagesChange = (value: string[]) => {
+  const checkedCount = value.length
+  checkAll.value = checkedCount === currentPackages.value.length
+  isIndeterminate.value = checkedCount > 0 && checkedCount < currentPackages.value.length
+}
 
 const refreshDevices = async () => {
+  isLoading.value = true
   const res = await window.electronAPI.getDevices()
+  isLoading.value = false
   if (res.success && res.data) {
     devices.value = res.data
     if (devices.value.length > 0 && !selectedDevice.value) {
@@ -169,18 +208,35 @@ const runCommand = async (type: string) => {
     case 'get-udid':
       await execute(`${prefix} bm get -u`)
       break
+    case 'screenshot':
+      addLog('正在截屏...')
+      try {
+        const res = await window.electronAPI.screenshot(selectedDevice.value)
+        if (res.success) {
+          addLog(`截屏成功: ${res.path}`)
+        } else {
+          addLog(`截屏失败: ${res.error}`, 'error')
+        }
+      } catch (e) {
+        addLog(`截屏异常: ${e}`, 'error')
+      }
+      break
     case 'clean-data':
-      if (currentPackages.value.length === 0) return
-      for (const pkg of currentPackages.value) {
+      if (selectedPackages.value.length === 0) return
+      for (const pkgName of selectedPackages.value) {
+        const pkg = currentPackages.value.find((p) => p.packageName === pkgName)
+        if (!pkg) continue
         addLog(`正在清除 [${pkg.name}] 数据...`)
-        await execute(`${prefix} bm clean -d -n ${pkg.packageName}`)
+        await execute(`${prefix} bm clean -d -n ${pkgName}`)
       }
       break
     case 'clean-cache':
-      if (currentPackages.value.length === 0) return
-      for (const pkg of currentPackages.value) {
+      if (selectedPackages.value.length === 0) return
+      for (const pkgName of selectedPackages.value) {
+        const pkg = currentPackages.value.find((p) => p.packageName === pkgName)
+        if (!pkg) continue
         addLog(`正在清除 [${pkg.name}] 缓存...`)
-        await execute(`${prefix} bm clean -c -n ${pkg.packageName}`)
+        await execute(`${prefix} bm clean -c -n ${pkgName}`)
       }
       break
   }
@@ -191,18 +247,11 @@ const runCustomCommand = async (cmdTemplate: string) => {
     ElMessage.warning('请先选择设备')
     return
   }
-  // Replace placeholders if any, or just append to hdc -t <id> shell?
-  // User requirement: "hdc shell ..."
-  // If the custom command is full "hdc shell ...", we might need to inject -t <id>
-  // Let's assume custom commands are stored as full commands e.g. "hdc shell bm get -u"
-  // We need to insert -t <id> after hdc.
 
   let finalCmd = cmdTemplate
   if (cmdTemplate.startsWith('hdc ')) {
     finalCmd = cmdTemplate.replace('hdc ', `hdc -t ${selectedDevice.value} `)
   } else {
-    // If it doesn't start with hdc, maybe it's just a shell command?
-    // Let's assume it is a full hdc command for now as per requirement 5.3
     finalCmd = `hdc -t ${selectedDevice.value} ${cmdTemplate}`
   }
 
@@ -233,29 +282,45 @@ const clearLogs = () => {
   logs.value = []
 }
 
-const foundHap = ref<{ path: string; mtime: Date } | null>(null)
+const foundHaps = ref<Array<{ path: string; mtime: Date; name: string }>>([])
 
 const checkAppHap = async () => {
   const res = await window.electronAPI.findAppHap()
-  if (res) {
-    foundHap.value = res
+  if (res && res.length > 0) {
+    foundHaps.value = res
   }
 }
 
-const installHap = async () => {
-  if (!foundHap.value) return
+const installHap = async (path: string) => {
   if (!selectedDevice.value) {
     ElMessage.warning('请先选择设备')
     return
   }
 
-  const cmd = `hdc -t ${selectedDevice.value} install -r "${foundHap.value.path}"`
+  const cmd = `hdc -t ${selectedDevice.value} install -r "${path}"`
   await execute(cmd)
 }
 
 onMounted(() => {
   refreshDevices()
   checkAppHap()
+  loadSettings()
+
+  // Listen for config updates
+  window.electronAPI.onConfigUpdated((config: any) => {
+    currentPackages.value = config.packages || []
+    customCommands.value = config.customCommands || []
+    // Re-evaluate selection logic if needed, or just keep existing selection if valid?
+    // For simplicity, reset selection to all or keep valid ones.
+    // Let's keep valid ones.
+    const newPkgNames = new Set(currentPackages.value.map((p) => p.packageName))
+    selectedPackages.value = selectedPackages.value.filter((p) => newPkgNames.has(p))
+
+    // Update checkAll state
+    const checkedCount = selectedPackages.value.length
+    checkAll.value = checkedCount > 0 && checkedCount === currentPackages.value.length
+    isIndeterminate.value = checkedCount > 0 && checkedCount < currentPackages.value.length
+  })
 })
 
 function handleContextMenu() {
@@ -294,6 +359,14 @@ function handleContextMenu() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.device-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.device-list {
+  margin-bottom: 20px;
 }
 
 .command-grid {
@@ -340,20 +413,56 @@ function handleContextMenu() {
   border: none;
 }
 
+.hap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.hap-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 .hap-info {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  margin-right: 10px;
+}
+
+.hap-name {
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--el-color-success);
 }
 
 .hap-path {
   font-size: 12px;
   color: #666;
   word-break: break-all;
-  margin-bottom: 5px;
+  margin-bottom: 2px;
 }
 
 .hap-time {
   font-size: 12px;
   color: #999;
+}
+
+.package-selection {
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.text-select {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  line-height: 12px;
 }
 </style>

@@ -49,6 +49,16 @@ export default class HdcWrapper {
       })
 
       child.on('close', (code) => {
+        // 如果是开发环境，直接控制台输出错误信息
+        if (process.env.NODE_ENV === 'development') {
+          if (code === 0) {
+            // 控制台绿色打印
+            console.log(`\x1b[32m${stdout}\x1b[0m`)
+          } else {
+            // 控制台红色打印
+            console.log(`\x1b[31m${stderr}\x1b[0m`)
+          }
+        }
         if (code === 0) {
           resolve(stdout.trim())
         } else {

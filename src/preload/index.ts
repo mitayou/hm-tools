@@ -36,7 +36,28 @@ if (process.contextIsolated) {
       /**
        * 查找微信开发者工具生成的hap包 (Windows only)
        */
-      findAppHap: () => ipcRenderer.invoke('app:findAppHap')
+      findAppHap: () => ipcRenderer.invoke('app:findAppHap'),
+      /**
+       * 获取配置
+       */
+      getConfig: () => ipcRenderer.invoke('config:get'),
+      /**
+       * 保存配置
+       */
+      saveConfig: (config: any) => ipcRenderer.invoke('config:save', config),
+      /**
+       * 截屏预览
+       */
+      screenshot: (deviceId: string) => ipcRenderer.invoke('hdc:screenshot', deviceId),
+      /**
+       * 监听配置更新
+       */
+      onConfigUpdated: (callback: (config: any) => void) =>
+        ipcRenderer.on('config:updated', (_event, config) => callback(config)),
+      /**
+       * 获取版本信息
+       */
+      getVersion: () => ipcRenderer.invoke('app:getVersion')
     })
   } catch (error) {
     console.error(error)

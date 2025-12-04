@@ -46,7 +46,9 @@
       <div class="content-area">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <KeepAlive>
+              <component :is="Component" />
+            </KeepAlive>
           </transition>
         </router-view>
       </div>
@@ -164,7 +166,7 @@ const close = () => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.1s ease;
 }
 
 .fade-enter-from,
