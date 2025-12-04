@@ -109,3 +109,64 @@ ipcMain.on('window:maximize', () => {
   }
 })
 ipcMain.on('window:close', () => win?.close())
+
+import fs from 'fs'
+import os from 'os'
+
+ipcMain.handle('app:findAppHap', async () => {
+  if (process.platform !== 'win32') return null
+
+  try {
+    const homeDir = os.homedir()
+    // C:\Users\{computerName}\AppData\Local\微信开发者工具\User Data\{唯一的一个文件夹}\WeappMiniApp\ohos\{唯一的一个文件夹2}\app.hap
+    const baseDir = join(homeDir, 'AppData', 'Local', '微信开发者工具', 'User Data')
+
+    if (!fs.existsSync(baseDir)) return null
+
+    // Find first unique folder in User Data
+    fs.readdirSync(baseDir).filter(
+      (f) => fs.statSync(join(baseDir, f)).isDirectory() && f !== 'Default' && f !== 'Crashpad'
+    )
+    // The requirement says "unique folder", but User Data contains many folders.
+    // Usually it's a hash-like folder or we might need to look deeper.
+    // Let's try to find a folder that contains WeappMiniApp inside it.
+
+    let targetHapPath = ''
+
+    // Strategy: Search recursively or look for specific pattern?
+    // Requirement: User Data\{唯一的一个文件夹}\WeappMiniApp\ohos\{唯一的一个文件夹2}\app.hap
+    // Let's iterate all directories in User Data to find one having WeappMiniApp
+
+    const potentialDirs = fs.readdirSync(baseDir)
+
+    for (const dir of potentialDirs) {
+      const weappDir = join(baseDir, dir, 'WeappMiniApp', 'ohos')
+      if (fs.existsSync(weappDir)) {
+        // Found the path up to ohos
+        // Now find {唯一的一个文件夹2}
+        const subDirs = fs.readdirSync(weappDir)
+        if (subDirs.length > 0) {
+          // Assuming the first one is the target as per "unique" hint, or just take the first one found
+          const hapPath = join(weappDir, subDirs[0], 'app.hap')
+          if (fs.existsSync(hapPath)) {
+            targetHapPath = hapPath
+            break
+          }
+        }
+      }
+    }
+
+    if (targetHapPath) {
+      const stats = fs.statSync(targetHapPath)
+      return {
+        path: targetHapPath,
+        mtime: stats.mtime
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error finding app.hap:', error)
+    return null
+  }
+})

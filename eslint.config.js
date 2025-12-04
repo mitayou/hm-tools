@@ -62,7 +62,9 @@ export default [
     rules: {
       'vue/require-default-prop': 'off',
       'vue/multi-word-component-names': 'off',
-      semi: [1, 'never']
+      semi: [1, 'never'],
+      // 定义后不使用
+      '@typescript-eslint/no-unused-vars': 'off'
     }
   }
 ]

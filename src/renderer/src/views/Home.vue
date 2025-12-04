@@ -11,7 +11,9 @@
         <el-select v-model="selectedDevice" placeholder="请选择设备" style="width: 100%">
           <el-option v-for="item in devices" :key="item" :label="item" :value="item" />
         </el-select>
-        <div v-if="devices.length === 0" class="no-device">未检测到设备，请连接USB</div>
+        <div v-if="devices.length === 0" class="no-device">
+          未检测到设备，请连接USB或在设置-开发者选项-开启无线调试
+        </div>
       </div>
     </el-card>
 
@@ -19,17 +21,31 @@
       <template #header>
         <div class="card-header">
           <span>常用功能</span>
-          <el-tag v-if="currentPackage" type="success">当前包名: {{ currentPackage }}</el-tag>
+          <div v-if="currentPackages.length > 0" class="package-tags">
+            <el-tag
+              v-for="pkg in currentPackages"
+              :key="pkg.packageName"
+              type="success"
+              size="small"
+              >{{ pkg.name }}</el-tag
+            >
+          </div>
           <el-tag v-else type="warning">未配置包名</el-tag>
         </div>
       </template>
 
       <div class="command-grid">
         <el-button @click="runCommand('get-udid')">获取UDID</el-button>
-        <el-button type="danger" @click="runCommand('clean-data')" :disabled="!currentPackage"
+        <el-button
+          type="danger"
+          @click="runCommand('clean-data')"
+          :disabled="currentPackages.length === 0"
           >清除数据</el-button
         >
-        <el-button type="warning" @click="runCommand('clean-cache')" :disabled="!currentPackage"
+        <el-button
+          type="warning"
+          @click="runCommand('clean-cache')"
+          :disabled="currentPackages.length === 0"
           >清除缓存</el-button
         >
 
@@ -60,6 +76,23 @@
         </div>
       </div>
     </el-card>
+
+    <!-- AppData Check Result -->
+    <el-card v-if="foundHap" class="hap-card">
+      <template #header>
+        <div class="card-header">
+          <span>发现构建包</span>
+          <el-tag type="warning" size="small">DevTools</el-tag>
+        </div>
+      </template>
+      <div class="hap-info">
+        <div class="hap-path" :title="foundHap.path">{{ foundHap.path }}</div>
+        <div class="hap-time">创建时间: {{ new Date(foundHap.mtime).toLocaleString() }}</div>
+        <el-button type="primary" style="margin-top: 10px" @click="installHap"
+          >安装到设备</el-button
+        >
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -67,13 +100,45 @@
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 
+interface AppPackage {
+  name: string
+  packageName: string
+}
+
 const devices = ref<string[]>([])
 const selectedDevice = ref('')
 const logs = ref<{ time: string; content: string; type: 'info' | 'error' }[]>([])
 const logViewerRef = ref<HTMLElement | null>(null)
 
 // Load settings from localStorage
-const currentPackage = computed(() => localStorage.getItem('hm_package_name') || '')
+const currentPackages = computed<AppPackage[]>(() => {
+  const pkgs = localStorage.getItem('hm_packages')
+  if (pkgs) {
+    try {
+      return JSON.parse(pkgs)
+    } catch (e) {
+      console.error('Failed to parse packages:', e)
+      return []
+    }
+  }
+  // Fallback for old array of strings
+  const oldPkgs = localStorage.getItem('hm_package_names')
+  if (oldPkgs) {
+    try {
+      const arr = JSON.parse(oldPkgs)
+      if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'string') {
+        return arr.map((p) => ({ name: p, packageName: p }))
+      }
+    } catch (e) {
+      console.error('Failed to parse old packages:', e)
+      return []
+    }
+  }
+  // Fallback for old single string
+  const oldPkg = localStorage.getItem('hm_package_name')
+  return oldPkg ? [{ name: '默认应用', packageName: oldPkg }] : []
+})
+
 const customCommands = computed(() => {
   const cmds = localStorage.getItem('hm_custom_commands')
   return cmds ? JSON.parse(cmds) : []
@@ -98,31 +163,26 @@ const runCommand = async (type: string) => {
     return
   }
 
-  let cmd = ''
-  // Target specific device if multiple? hdc -t <id> ...
-  // For simplicity, we assume we want to run on the selected device.
-  // We need to prepend 'hdc -t <id> shell ...'
   const prefix = `hdc -t ${selectedDevice.value} shell`
 
   switch (type) {
     case 'get-udid':
-      // bm get -u is actually 'bm get -u' in shell
-      // But wait, user requirement says: hdc shell bm get -u
-      // So we run: hdc -t <id> shell bm get -u
-      cmd = `${prefix} bm get -u`
+      await execute(`${prefix} bm get -u`)
       break
     case 'clean-data':
-      if (!currentPackage.value) return
-      cmd = `${prefix} bm clean -d -n ${currentPackage.value}`
+      if (currentPackages.value.length === 0) return
+      for (const pkg of currentPackages.value) {
+        addLog(`正在清除 [${pkg.name}] 数据...`)
+        await execute(`${prefix} bm clean -d -n ${pkg.packageName}`)
+      }
       break
     case 'clean-cache':
-      if (!currentPackage.value) return
-      cmd = `${prefix} bm clean -c -n ${currentPackage.value}`
+      if (currentPackages.value.length === 0) return
+      for (const pkg of currentPackages.value) {
+        addLog(`正在清除 [${pkg.name}] 缓存...`)
+        await execute(`${prefix} bm clean -c -n ${pkg.packageName}`)
+      }
       break
-  }
-
-  if (cmd) {
-    await execute(cmd)
   }
 }
 
@@ -173,8 +233,29 @@ const clearLogs = () => {
   logs.value = []
 }
 
+const foundHap = ref<{ path: string; mtime: Date } | null>(null)
+
+const checkAppHap = async () => {
+  const res = await window.electronAPI.findAppHap()
+  if (res) {
+    foundHap.value = res
+  }
+}
+
+const installHap = async () => {
+  if (!foundHap.value) return
+  if (!selectedDevice.value) {
+    ElMessage.warning('请先选择设备')
+    return
+  }
+
+  const cmd = `hdc -t ${selectedDevice.value} install -r "${foundHap.value.path}"`
+  await execute(cmd)
+}
+
 onMounted(() => {
   refreshDevices()
+  checkAppHap()
 })
 
 function handleContextMenu() {
@@ -199,7 +280,6 @@ function handleContextMenu() {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100%;
 }
 
 .device-card,
@@ -224,7 +304,7 @@ function handleContextMenu() {
 
 .log-viewer {
   height: 200px;
-  overflow-y: auto;
+  overflow-y: overlay;
   background: rgba(0, 0, 0, 0.8);
   color: #0f0;
   padding: 10px;
@@ -252,5 +332,28 @@ function handleContextMenu() {
   color: #999;
   font-size: 12px;
   text-align: center;
+}
+
+.hap-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+  border: none;
+}
+
+.hap-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hap-path {
+  font-size: 12px;
+  color: #666;
+  word-break: break-all;
+  margin-bottom: 5px;
+}
+
+.hap-time {
+  font-size: 12px;
+  color: #999;
 }
 </style>

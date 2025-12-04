@@ -8,7 +8,11 @@
       </template>
       <el-form label-width="100px">
         <el-form-item label="应用包名">
-          <el-input v-model="packageName" placeholder="例如: com.pagoda.hm.buy" @change="saveSettings" />
+          <el-input
+            v-model="packageName"
+            placeholder="例如: com.pagoda.hm.buy"
+            @change="saveSettings"
+          />
           <div class="tips">用于清除数据和缓存命令</div>
         </el-form-item>
       </el-form>
@@ -21,7 +25,7 @@
           <el-button type="primary" size="small" @click="addCommand">添加命令</el-button>
         </div>
       </template>
-      
+
       <el-table :data="customCommands" style="width: 100%">
         <el-table-column prop="name" label="功能名称" width="150">
           <template #default="scope">
@@ -30,7 +34,11 @@
         </el-table-column>
         <el-table-column prop="command" label="命令行 (hdc开头)">
           <template #default="scope">
-            <el-input v-model="scope.row.command" placeholder="hdc shell ..." @change="saveSettings" />
+            <el-input
+              v-model="scope.row.command"
+              placeholder="hdc shell ..."
+              @change="saveSettings"
+            />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="80">
@@ -56,9 +64,7 @@ const loadSettings = () => {
     customCommands.value = JSON.parse(cmds)
   } else {
     // Default custom commands if empty
-    customCommands.value = [
-      { name: '查看内存', command: 'hdc shell dumpsys meminfo' }
-    ]
+    customCommands.value = [{ name: '查看内存', command: 'hdc shell dumpsys meminfo' }]
   }
 }
 
@@ -98,5 +104,14 @@ onMounted(() => {
   font-size: 12px;
   color: #999;
   margin-top: 5px;
+}
+
+.package-config {
+  width: 100%;
+}
+
+.add-package {
+  display: flex;
+  gap: 10px;
 }
 </style>

@@ -4,6 +4,7 @@ export interface IElectronAPI {
   minimize: () => void
   maximize: () => void
   close: () => void
+  findAppHap: () => Promise<{ path: string; mtime: Date } | null>
 }
 
 declare global {

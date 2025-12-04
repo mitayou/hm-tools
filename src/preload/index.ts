@@ -32,7 +32,11 @@ if (process.contextIsolated) {
       /**
        * 窗口控制：关闭
        */
-      close: () => ipcRenderer.send('window:close')
+      close: () => ipcRenderer.send('window:close'),
+      /**
+       * 查找微信开发者工具生成的hap包 (Windows only)
+       */
+      findAppHap: () => ipcRenderer.invoke('app:findAppHap')
     })
   } catch (error) {
     console.error(error)

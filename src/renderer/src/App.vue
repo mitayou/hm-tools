@@ -14,7 +14,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="main-content">
       <div class="sidebar">
         <el-menu
@@ -28,13 +28,21 @@
             <el-icon><HomeFilled /></el-icon>
             <span>常用功能</span>
           </el-menu-item>
+          <el-menu-item index="/more">
+            <el-icon><Menu /></el-icon>
+            <span>更多功能</span>
+          </el-menu-item>
+          <el-menu-item index="/experimental">
+            <el-icon><MagicStick /></el-icon>
+            <span>实验功能</span>
+          </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
             <span>设置</span>
           </el-menu-item>
         </el-menu>
       </div>
-      
+
       <div class="content-area">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -47,7 +55,15 @@
 </template>
 
 <script setup lang="ts">
-import { Minus, FullScreen, Close, HomeFilled, Setting } from '@element-plus/icons-vue'
+import {
+  Minus,
+  FullScreen,
+  Close,
+  HomeFilled,
+  Setting,
+  Menu,
+  MagicStick
+} from '@element-plus/icons-vue'
 
 const minimize = () => {
   window.electronAPI?.minimize()
@@ -71,8 +87,10 @@ const close = () => {
   backdrop-filter: blur(20px);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  box-shadow: inset 3px 3px 3px 0 rgba(255, 255, 255, 0.45), inset -3px -3px 3px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    inset 3px 3px 3px 0 rgba(255, 255, 255, 0.45),
+    inset -3px -3px 3px 0 rgba(255, 255, 255, 0.45);
   inset: 0;
 }
 
@@ -109,7 +127,7 @@ const close = () => {
 }
 
 .control-btn:hover {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .control-btn.close:hover {
@@ -125,7 +143,7 @@ const close = () => {
 
 .sidebar {
   width: 200px;
-  border-right: 1px solid rgba(0,0,0,0.05);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
   background: rgba(255, 255, 255, 0.5);
 }
 
@@ -140,7 +158,7 @@ const close = () => {
 .content-area {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: overlay;
   background: rgba(255, 255, 255, 0.4);
 }
 
