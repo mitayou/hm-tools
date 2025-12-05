@@ -1,0 +1,14 @@
+{
+  "packages": [
+    {
+      "name": "APP",
+      "packageName": "com.example.app"
+    }
+  ],
+  "customCommands": [
+    {
+      "name": "唤醒设备",
+      "command": "hdc shell power-shell wakeup"
+    }
+  ]
+}

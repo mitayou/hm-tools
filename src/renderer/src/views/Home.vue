@@ -39,6 +39,15 @@
           </el-icon>
           <span> 截屏预览</span>
         </el-button>
+
+        <!-- Custom Commands -->
+        <el-button
+          v-for="(cmd, index) in customCommands"
+          :key="index"
+          @click="runCustomCommand(cmd.command)"
+        >
+          {{ cmd.name }}
+        </el-button>
       </div>
     </el-card>
 
@@ -100,15 +109,6 @@
             <remove />
           </el-icon>
           <span> 卸载应用</span>
-        </el-button>
-
-        <!-- Custom Commands -->
-        <el-button
-          v-for="(cmd, index) in customCommands"
-          :key="index"
-          @click="runCustomCommand(cmd.command)"
-        >
-          {{ cmd.name }}
         </el-button>
       </div>
     </el-card>
