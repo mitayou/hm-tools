@@ -13,7 +13,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),
-        '@skins': resolve('src/skins')
+        '@skins': resolve('src/renderer/src/assets/skins')
       }
     },
     plugins: [vue()]

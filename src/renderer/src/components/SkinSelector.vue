@@ -75,7 +75,7 @@ const selectedSkin = ref('default')
 const blurValue = ref(20)
 
 // Load images from ../../../skins/images
-const rawSkinImages = import.meta.glob('../../../skins/images/*.{png,jpg,jpeg,svg}', {
+const rawSkinImages = import.meta.glob('@skins/images/*.{png,jpg,jpeg,svg}', {
   eager: true
 }) as Record<string, { default: string }>
 
