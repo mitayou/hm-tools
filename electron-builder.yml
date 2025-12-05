@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.electron.hmtools
 productName: 鸿蒙工具
 directories:
   buildResources: build

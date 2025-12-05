@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <div class="device-header">
-            <el-icon v-if="isLoading" class="is-loading">
+            <el-icon v-if="deviceChecking" class="is-loading">
               <loading />
             </el-icon>
             设备连接({{ devices.length }}台)
@@ -21,6 +21,12 @@
         </div>
       </div>
       <div class="command-grid">
+        <el-button type="default" @click="openDeviceDialog">
+          <el-icon>
+            <connection />
+          </el-icon>
+          <span> 添加设备</span>
+        </el-button>
         <el-button type="default" @click="runCommand('get-udid')">
           <el-icon>
             <aim />
@@ -65,7 +71,7 @@
       </div>
       <div class="command-grid">
         <el-button
-          type="danger"
+          type="success"
           @click="runCommand('clean-data')"
           :disabled="selectedPackages.length === 0"
         >
@@ -83,6 +89,17 @@
             <delete />
           </el-icon>
           <span> 清除缓存</span>
+        </el-button>
+
+        <el-button
+          type="danger"
+          @click="runCommand('uninstall')"
+          :disabled="selectedPackages.length === 0"
+        >
+          <el-icon>
+            <remove />
+          </el-icon>
+          <span> 卸载应用</span>
         </el-button>
 
         <!-- Custom Commands -->
@@ -117,8 +134,20 @@
     <el-card v-if="foundHaps.length > 0" class="hap-card">
       <template #header>
         <div class="card-header">
-          <span>发现构建包 ({{ foundHaps.length }})</span>
-          <el-tag type="warning" size="small">构建目录</el-tag>
+          <div class="hap-wrapper">
+            <el-icon v-if="hapChecking" class="is-loading">
+              <loading />
+            </el-icon>
+            <span>扫描小程序构建包</span>
+            <el-tooltip
+              effect="light"
+              content="扫描文件为C:\Users\{computerName}\AppData\Local\微信开发者工具\User Data\{random}\WeappMiniApp\ohos\{random}\*.hap"
+              placement="top"
+            >
+              <span class="text-primary"> ({{ foundHaps.length }})</span>
+            </el-tooltip>
+          </div>
+          <el-button type="primary" link @click="scanHaps">重新扫描</el-button>
         </div>
       </template>
       <div class="hap-list">
@@ -132,11 +161,39 @@
         </div>
       </div>
     </el-card>
+
+    <el-dialog v-model="deviceDialogVisible" title="添加无线鸿蒙设备">
+      <el-form :model="ruleForm" :rules="rules" label-width="80px">
+        <el-form-item label="">
+          <el-icon class="text-warning">
+            <warning />
+          </el-icon>
+          <span> 需到设置-开发者选项-开启无线调试</span>
+        </el-form-item>
+        <el-form-item label="设备IP" prop="ip">
+          <el-input v-model="ruleForm.ip" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="设备端口" prop="port">
+          <el-input
+            v-model="ruleForm.port"
+            type="number"
+            clearable
+            @keyup.enter="addDevice"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deviceDialogVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!ruleForm.ip || !ruleForm.port" @click="addDevice">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
 
 interface AppPackage {
@@ -146,7 +203,18 @@ interface AppPackage {
 
 const devices = ref<string[]>([])
 const selectedDevice = ref('')
-const isLoading = ref(false)
+const deviceChecking = ref(false)
+const hapChecking = ref(false)
+const deviceDialogVisible = ref(false)
+
+const ruleForm = ref({
+  ip: '192.168.',
+  port: ''
+})
+const rules = ref({
+  ip: [{ required: true, message: '请输入设备IP', trigger: 'blur' }],
+  port: [{ required: true, message: '请输入设备端口', trigger: 'blur' }]
+})
 const logs = ref<{ time: string; content: string; type: 'info' | 'error' }[]>([])
 const logViewerRef = ref<HTMLElement | null>(null)
 const currentPackages = ref<AppPackage[]>([])
@@ -182,9 +250,9 @@ const handleCheckedPackagesChange = (value: string[]) => {
 }
 
 const refreshDevices = async () => {
-  isLoading.value = true
+  deviceChecking.value = true
   const res = await window.electronAPI.getDevices()
-  isLoading.value = false
+  deviceChecking.value = false
   if (res.success && res.data) {
     devices.value = res.data
     if (devices.value.length > 0 && !selectedDevice.value) {
@@ -239,6 +307,15 @@ const runCommand = async (type: string) => {
         await execute(`${prefix} bm clean -c -n ${pkgName}`)
       }
       break
+    case 'uninstall':
+      if (selectedPackages.value.length === 0) return
+      for (const pkgName of selectedPackages.value) {
+        const pkg = currentPackages.value.find((p) => p.packageName === pkgName)
+        if (!pkg) continue
+        addLog(`正在卸载 [${pkg.name}] ...`)
+        await execute(`${prefix} bm uninstall -n ${pkgName}`)
+      }
+      break
   }
 }
 
@@ -285,7 +362,9 @@ const clearLogs = () => {
 const foundHaps = ref<Array<{ path: string; mtime: Date; name: string }>>([])
 
 const checkAppHap = async () => {
+  hapChecking.value = true
   const res = await window.electronAPI.findAppHap()
+  hapChecking.value = false
   if (res && res.length > 0) {
     foundHaps.value = res
   }
@@ -299,6 +378,23 @@ const installHap = async (path: string) => {
 
   const cmd = `hdc -t ${selectedDevice.value} install -r "${path}"`
   await execute(cmd)
+}
+
+function scanHaps() {
+  checkAppHap()
+}
+
+function openDeviceDialog() {
+  deviceDialogVisible.value = true
+}
+
+async function addDevice() {
+  // 关闭弹窗
+  deviceDialogVisible.value = false
+  // 通过hdc连接设备
+  await execute(`tconn ${ruleForm.value.ip}:${ruleForm.value.port}`)
+  // 刷新设备列表
+  await refreshDevices()
 }
 
 onMounted(() => {
@@ -321,6 +417,10 @@ onMounted(() => {
     checkAll.value = checkedCount > 0 && checkedCount === currentPackages.value.length
     isIndeterminate.value = checkedCount > 0 && checkedCount < currentPackages.value.length
   })
+})
+
+onActivated(() => {
+  refreshDevices()
 })
 
 function handleContextMenu() {
@@ -412,7 +512,15 @@ function handleContextMenu() {
   backdrop-filter: blur(2px);
   border: none;
 }
-
+.hap-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.text-primary {
+  color: var(--el-color-primary);
+  cursor: pointer;
+}
 .hap-list {
   display: flex;
   flex-direction: column;
@@ -464,5 +572,9 @@ function handleContextMenu() {
   color: var(--el-text-color-primary);
   font-size: 14px;
   line-height: 12px;
+}
+.text-warning {
+  color: var(--el-color-warning);
+  margin-right: 4px;
 }
 </style>

@@ -64,7 +64,9 @@ export default [
       'vue/multi-word-component-names': 'off',
       semi: [1, 'never'],
       // 定义后不使用
-      '@typescript-eslint/no-unused-vars': 'off'
+      '@typescript-eslint/no-unused-vars': 'off',
+      // 支持any
+      '@typescript-eslint/no-explicit-any': 'off'
     }
   }
 ]

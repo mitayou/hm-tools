@@ -25,7 +25,13 @@
               <span class="cmd-desc">hdc tconn [IP]:[port]</span>
             </div>
             <div class="cmd-input">
-              <el-input v-model="tconnIp" placeholder="IP:Port" size="small" style="width: 200px" />
+              <el-input
+                v-model="tconnIp"
+                placeholder="IP:Port"
+                size="small"
+                style="width: 200px"
+                @keyup.enter="runTconn"
+              />
               <el-button type="primary" size="small" @click="runTconn">连接</el-button>
             </div>
           </div>
