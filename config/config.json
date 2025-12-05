@@ -1,0 +1,14 @@
+{
+  "packages": [
+    {
+      "name": "百果园多端APP",
+      "packageName": "com.pagoda.hm.buy"
+    }
+  ],
+  "customCommands": [
+    {
+      "name": "唤醒设备",
+      "command": "hdc shell power-shell wakeup"
+    }
+  ]
+}
