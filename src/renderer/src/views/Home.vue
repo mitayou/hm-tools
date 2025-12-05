@@ -398,7 +398,6 @@ async function addDevice() {
 }
 
 onMounted(() => {
-  refreshDevices()
   checkAppHap()
   loadSettings()
 
@@ -451,7 +450,7 @@ function handleContextMenu() {
 .command-card,
 .log-card {
   background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(var(--content-blur, 20px));
   border: none;
 }
 

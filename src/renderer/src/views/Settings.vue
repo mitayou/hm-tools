@@ -72,6 +72,15 @@
 
       <Versions />
     </el-card>
+
+    <el-card class="settings-card">
+      <template #header>
+        <div class="card-header">
+          <span>开发者工具</span>
+        </div>
+      </template>
+      <el-button type="default" size="small" @click="openDevTools">打开调试</el-button>
+    </el-card>
   </div>
 </template>
 
@@ -140,6 +149,10 @@ const removeCommand = (index: number) => {
 
 function checkUpdate() {
   ElMessage.success('敬请期待')
+}
+
+function openDevTools() {
+  window.electronAPI.openDevTools()
 }
 
 onMounted(() => {

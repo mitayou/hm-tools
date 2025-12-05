@@ -34,5 +34,10 @@ export class IpcHandler {
       const win = BrowserWindow.fromWebContents(event.sender)
       win?.close()
     })
+
+    ipcMain.on('window:open-devtools', (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      win?.webContents.openDevTools()
+    })
   }
 }

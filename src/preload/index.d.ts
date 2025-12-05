@@ -10,7 +10,12 @@ declare global {
       minimize: () => void
       maximize: () => void
       close: () => void
-      findAppHap: () => Promise<{ path: string; mtime: Date } | null>
+      findAppHap: () => Promise<Array<{ path: string; mtime: Date; name: string }> | null>
+      getConfig: () => Promise<any>
+      saveConfig: (config: any) => Promise<boolean>
+      screenshot: (deviceId: string) => Promise<{ success: boolean; path?: string; error?: string }>
+      onConfigUpdated: (callback: (config: any) => void) => void
+      getVersion: () => Promise<string>
     }
   }
 }

@@ -1,8 +1,8 @@
 {
   "packages": [
     {
-      "name": "APP",
-      "packageName": "com.example.app"
+      "name": "百果园多端APP",
+      "packageName": "com.pagoda.hm.buy"
     }
   ],
   "customCommands": [

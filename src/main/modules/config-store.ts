@@ -19,11 +19,19 @@ const getConfigPath = (): string => {
 export interface AppConfig {
   packages: Array<{ name: string; packageName: string }>
   customCommands: Array<{ name: string; command: string }>
+  skin?: {
+    selected: string
+    blur: number
+  }
 }
 
 const DEFAULT_CONFIG: AppConfig = {
   packages: [],
-  customCommands: [{ name: '查看连接设备列表', command: 'hdc list targets -v' }]
+  customCommands: [{ name: '查看连接设备列表', command: 'hdc list targets -v' }],
+  skin: {
+    selected: 'default',
+    blur: 20
+  }
 }
 
 export class ConfigStore {

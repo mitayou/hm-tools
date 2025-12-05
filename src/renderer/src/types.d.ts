@@ -1,3 +1,5 @@
+import { ElectronAPI } from '@electron-toolkit/preload'
+
 export interface IElectronAPI {
   runHdcCommand: (command: string) => Promise<{ success: boolean; data?: string; error?: string }>
   getDevices: () => Promise<{ success: boolean; data?: string[]; error?: string }>
@@ -8,11 +10,16 @@ export interface IElectronAPI {
   getConfig: () => Promise<{
     packages: Array<{ name: string; packageName: string }>
     customCommands: Array<{ name: string; command: string }>
+    skin?: {
+      selected: string
+      blur: number
+    }
   }>
   saveConfig: (config: any) => Promise<boolean>
   screenshot: (deviceId: string) => Promise<{ success: boolean; path?: string; error?: string }>
   onConfigUpdated: (callback: (config: any) => void) => void
   getVersion: () => Promise<string>
+  openDevTools: () => void
 }
 
 declare global {

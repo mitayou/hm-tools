@@ -57,7 +57,11 @@ if (process.contextIsolated) {
       /**
        * 获取版本信息
        */
-      getVersion: () => ipcRenderer.invoke('app:getVersion')
+      getVersion: () => ipcRenderer.invoke('app:getVersion'),
+      /**
+       * 打开调试工具
+       */
+      openDevTools: () => ipcRenderer.send('window:open-devtools')
     })
   } catch (error) {
     console.error(error)
