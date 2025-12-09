@@ -1,6 +1,6 @@
-<h1 align="center">HM 工具</h1>
+<h1 align="center">鸿蒙工具</h1>
 
-<p align="center">HM 工具</p>
+<p align="center">鸿蒙可视化工具</p>
 
 <p align="center">
 <img src="./build/version.svg" alt="electron-version">
